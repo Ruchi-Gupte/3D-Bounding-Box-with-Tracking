@@ -1,6 +1,4 @@
-# Advanced Driver Assistance using DeepSORT
-
-## To run DeepSort, run in command line:
+## To run 3D BBOX, run in command line:
 ```
 python main.py
 ```
