@@ -8,4 +8,4 @@ On Line 65 in main.py change to the path of test video
 ```
 self.input_path = 'Video_Files/fullvid.mp4'
 ```
-#Hello parth here
+# Hello parth here
