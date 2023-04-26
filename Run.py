@@ -78,7 +78,7 @@ def main():
 
     # load torch
     weights_path = os.path.abspath(os.path.dirname(__file__)) + '/weights'
-    model_lst = [x for x in sorted(os.listdir(weights_path)) if x.endswith('.pkl')]
+    model_lst = [x for x in sorted(os.listdir(weights_path)) if (x.endswith('.pkl') or x.endswith('.pth'))]
     if len(model_lst) == 0:
         print('No previous model found, please train first!')
         exit()
@@ -87,7 +87,7 @@ def main():
         my_vgg = vgg.vgg19_bn(pretrained=True)
         model = Model.Model(features=my_vgg.features, bins=2).cuda()
 
-        checkpoint = torch.load(weights_path + '/'+ model_lst[-1])
+        checkpoint = torch.load(weights_path + '/model_epoch_1.pth')
         model.load_state_dict(checkpoint['model_state_dict'])
         model.eval()
 
@@ -135,6 +135,7 @@ def main():
         yolo_img = np.copy(truth_img)
 
         detections = yolo.detect(yolo_img)
+    
 
         for detection in detections:
 
@@ -191,7 +192,7 @@ def main():
             print('Got %s poses in %.3f seconds'%(len(detections), time.time() - start_time))
             print('-------------')
 
-        cv2.waitKey(500)
+        cv2.waitKey(5000)
        
 if __name__ == '__main__':
     main()

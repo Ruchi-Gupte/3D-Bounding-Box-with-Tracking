@@ -53,7 +53,7 @@ def train_test_model(epochs, device, use_saved=False):
     root = os.path.abspath(os.path.dirname(__file__))
     train_path = root + '/Kitti/training'
     save_dir = root + '/trained_models/'
-    model_path = root + '/trained_models/model_epoch_1.pth'
+    model_path = root + '/trained_models/model_epoch_0.pth'
     dataset = Dataset(train_path)
     print("Obtained Training Data")
 
@@ -83,6 +83,8 @@ def train_test_model(epochs, device, use_saved=False):
             opt_SGD.zero_grad()
             loss.backward()
             opt_SGD.step()
+            
+
         train_loss_curve.append(training_loss/len(trainloader))
         print("Epoch: ",epoch+1," Training Loss:", training_loss/len(trainloader))
 
@@ -92,7 +94,7 @@ def train_test_model(epochs, device, use_saved=False):
     return train_loss_curve
 
 if __name__=='__main__':
-    epochs =1
+    epochs =2
     use_saved = True
     device = "cuda:0" if torch.cuda.is_available() else "cpu"
     if torch.cuda.is_available():

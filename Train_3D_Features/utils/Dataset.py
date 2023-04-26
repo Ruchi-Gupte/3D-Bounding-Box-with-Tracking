@@ -6,7 +6,6 @@ from torch.utils import data
 from .File import *
 from .ClassAverages import ClassAverages
 
-# TODO: clean up where this is
 def generate_bins(bins):
     angle_bins = np.zeros(bins)
     interval = 2 * np.pi / bins
@@ -18,13 +17,13 @@ def generate_bins(bins):
 
 class Dataset(data.Dataset):
     def __init__(self, path, bins=2, overlap=0.1):
+        # self.transform = transforms.Compose([transforms.ToTensor(), transforms.Resize((240,320)), transforms.Normalize((0.1,0.1,0.1),(0.5,0.5,0.5))])
+        self.transform = transforms.Compose([transforms.ToTensor(), transforms.Resize((224, 224)), transforms.Normalize((0.485, 0.456, 0.406),(0.229, 0.224, 0.225))])
 
         self.top_label_path = path + "/label_2/"
         self.top_img_path = path + "/image_2/"
         self.top_calib_path = path + "/calib/"
-        # use a relative path instead?
 
-        # TODO: which camera cal to use, per frame or global one?
         self.proj_matrix = get_P(os.path.abspath(os.path.dirname(os.path.dirname(__file__)) + '/utils/calib_cam_to_cam.txt'))
 
         self.ids = [x.split('.')[0] for x in sorted(os.listdir(self.top_img_path))] # name of file
@@ -65,28 +64,23 @@ class Dataset(data.Dataset):
 
             self.labels[id][str(line_num)] = label
 
-        # hold one image at a time
-        self.curr_id = ""
-        self.curr_img = None
 
-
-    # should return (Input, Label)
     def __getitem__(self, index):
         id = self.object_list[index][0]
         line_num = self.object_list[index][1]
-
-        if id != self.curr_id:
-            self.curr_id = id
-            self.curr_img = cv2.imread(self.top_img_path + '%s.png'%id)
-
+        raw_img = cv2.imread(self.top_img_path + '%s.png'%id)
         label = self.labels[id][str(line_num)]
-        # P doesn't matter here
-        obj = DetectedObject(self.curr_img, label['Class'], label['Box_2D'], self.proj_matrix, label=label)
-
-        return obj.img, label
+        img = self.format_img(raw_img, label['Box_2D'])
+        return img, label
 
     def __len__(self):
         return len(self.object_list)
+    
+    def format_img(self, img, box_2d):        
+        xl, yl = box_2d[0]
+        xr, yr = box_2d[1]
+        batch = self.transform(img[yl:yr+1, xl:xr+1])
+        return batch
 
     def get_objects(self, ids):
         objects = []
@@ -247,10 +241,9 @@ is to keep this abstract enough so it can be used in combination with YOLO
 """
 class DetectedObject:
     def __init__(self, img, detection_class, box_2d, proj_matrix, label=None):
-
+        self.transform = transforms.Compose([transforms.ToTensor(), transforms.Resize((224, 224)), transforms.Normalize((0.485, 0.456, 0.406),(0.229, 0.224, 0.225))])
         if isinstance(proj_matrix, str): # filename
             proj_matrix = get_P(proj_matrix)
-            # proj_matrix = get_calibration_cam_to_image(proj_matrix)
 
         self.proj_matrix = proj_matrix
         self.theta_ray = self.calc_theta_ray(img, box_2d, proj_matrix)
@@ -273,26 +266,8 @@ class DetectedObject:
 
         return angle
 
-    def format_img(self, img, box_2d):
-
-        # Should this happen? or does normalize take care of it. YOLO doesnt like
-        # img=img.astype(np.float) / 255
-
-        # torch transforms
-        normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                                                std=[0.229, 0.224, 0.225])
-        process = transforms.Compose ([
-            transforms.ToTensor(),
-            normalize
-        ])
-
-        # crop image
-        pt1 = box_2d[0]
-        pt2 = box_2d[1]
-        crop = img[pt1[1]:pt2[1]+1, pt1[0]:pt2[0]+1]
-        crop = cv2.resize(src = crop, dsize=(224, 224), interpolation=cv2.INTER_CUBIC)
-
-        # recolor, reformat
-        batch = process(crop)
-
+    def format_img(self, img, box_2d):        
+        xl, yl = box_2d[0]
+        xr, yr = box_2d[1]
+        batch = self.transform(img[yl:yr+1, xl:xr+1])
         return batch
