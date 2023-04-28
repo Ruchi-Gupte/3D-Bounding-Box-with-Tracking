@@ -35,6 +35,8 @@ def plot_regressed_3d_bbox(img, truth_img, cam_to_img, box_2d, dimensions, alpha
 
 def main():
 
+    device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+
     weights_path = os.path.abspath(os.path.dirname(__file__)) + '/weights'
     model_lst = [x for x in sorted(os.listdir(weights_path)) if x.endswith('.pkl')]
     if len(model_lst) == 0:
@@ -43,8 +45,12 @@ def main():
     else:
         print ('Using previous model %s'%model_lst[-1])
         my_vgg = vgg.vgg19_bn(pretrained=True)
-        model = Model.Model(features=my_vgg.features, bins=2).cuda()
-        checkpoint = torch.load(weights_path + '/%s'%model_lst[-1])
+        model = Model.Model(features=my_vgg.features, bins=2).to(device)
+        if torch.cuda.is_available():
+            checkpoint = torch.load(weights_path + '/%s' % model_lst[-1])
+        else:
+            checkpoint = torch.load(weights_path + '/%s'%model_lst[-1], map_location=torch.device('cpu'))
+
         model.load_state_dict(checkpoint['model_state_dict'])
         model.eval()
 
@@ -69,9 +75,9 @@ def main():
             theta_ray = detectedObject.theta_ray
             input_img = detectedObject.img
 
-            input_tensor = torch.zeros([1,3,224,224]).cuda()
+            input_tensor = torch.zeros([1,3,224,224]).to(device)
             input_tensor[0,:,:,:] = input_img
-            input_tensor.cuda()
+            input_tensor.to(device)
 
             [orient, conf, dim] = model(input_tensor)
             orient = orient.cpu().data.numpy()[0, :, :]
