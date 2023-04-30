@@ -50,7 +50,11 @@ def main():
         my_vgg = vgg.vgg19_bn(pretrained=True)
         model = Model.Model(features=my_vgg.features, bins=2).to(device)
 
-        checkpoint = torch.load(weights_path + '/'+ model_lst[-1])
+        if torch.cuda.is_available():
+            checkpoint = torch.load(weights_path + '/%s' % model_lst[-1])
+        else:
+            checkpoint = torch.load(weights_path + '/%s' % model_lst[-1],map_location=torch.device('cpu'))
+
         model.load_state_dict(checkpoint['model_state_dict'])
         model.eval()
 
