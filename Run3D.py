@@ -48,7 +48,7 @@ def main():
     else:
         print('Using previous model %s'%model_lst[-1])
         my_vgg = vgg.vgg19_bn(pretrained=True)
-        model = Model.Model(features=my_vgg.features, bins=2).cuda()
+        model = Model.Model(features=my_vgg.features, bins=2).to(device)
 
         checkpoint = torch.load(weights_path + '/'+ model_lst[-1])
         model.load_state_dict(checkpoint['model_state_dict'])
@@ -126,7 +126,7 @@ def main():
             box_2d = box2d
             detected_class = detected_class
 
-            input_tensor = torch.zeros([1,3,224,224]).cuda()
+            input_tensor = torch.zeros([1,3,224,224]).to(device)
             input_tensor[0,:,:,:] = input_img
 
             [orient, conf, dim] = model(input_tensor)
