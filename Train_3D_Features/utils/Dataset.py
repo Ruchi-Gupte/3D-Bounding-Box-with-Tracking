@@ -6,19 +6,10 @@ from torch.utils import data
 from .File import *
 from .ClassAverages import ClassAverages
 
-def generate_bins(bins):
-    angle_bins = np.zeros(bins)
-    interval = 2 * np.pi / bins
-    for i in range(1,bins):
-        angle_bins[i] = i * interval
-    angle_bins += interval / 2 # center of the bin
-
-    return angle_bins
-
 class Dataset(data.Dataset):
     def __init__(self, path, bins=2, overlap=0.1):
-        # self.transform = transforms.Compose([transforms.ToTensor(), transforms.Resize((240,320)), transforms.Normalize((0.1,0.1,0.1),(0.5,0.5,0.5))])
-        self.transform = transforms.Compose([transforms.ToTensor(), transforms.Resize((224, 224)), transforms.Normalize((0.485, 0.456, 0.406),(0.229, 0.224, 0.225))])
+        self.transform = transforms.Compose([transforms.ToTensor(), transforms.Resize((240,320)), transforms.Normalize((0.1,0.1,0.1),(0.5,0.5,0.5))])
+        # self.transform = transforms.Compose([transforms.ToTensor(), transforms.Resize((224, 224)), transforms.Normalize((0.485, 0.456, 0.406),(0.229, 0.224, 0.225))])
 
         self.top_label_path = path + "/label_2/"
         self.top_img_path = path + "/image_2/"
@@ -203,71 +194,3 @@ class Dataset(data.Dataset):
                     })
         return buf
 
-    # will be deprc soon
-    def all_objects(self):
-        data = {}
-        for id in self.ids:
-            data[id] = {}
-            img_path = self.top_img_path + '%s.png'%id
-            img = cv2.imread(img_path)
-            data[id]['Image'] = img
-
-            # using p per frame
-            calib_path = self.top_calib_path + '%s.txt'%id
-            proj_matrix = get_calibration_cam_to_image(calib_path)
-
-            # using P_rect from global calib file
-            proj_matrix = self.proj_matrix
-
-            data[id]['Calib'] = proj_matrix
-
-            label_path = self.top_label_path + '%s.txt'%id
-            labels = self.parse_label(label_path)
-            objects = []
-            for label in labels:
-                box_2d = label['Box_2D']
-                detection_class = label['Class']
-                objects.append(DetectedObject(img, detection_class, box_2d, proj_matrix, label=label))
-
-            data[id]['Objects'] = objects
-
-        return data
-
-
-"""
-What is *sorta* the input to the neural net. Will hold the cropped image and
-the angle to that image, and (optionally) the label for the object. The idea
-is to keep this abstract enough so it can be used in combination with YOLO
-"""
-class DetectedObject:
-    def __init__(self, img, detection_class, box_2d, proj_matrix, label=None):
-        self.transform = transforms.Compose([transforms.ToTensor(), transforms.Resize((224, 224)), transforms.Normalize((0.485, 0.456, 0.406),(0.229, 0.224, 0.225))])
-        if isinstance(proj_matrix, str): # filename
-            proj_matrix = get_P(proj_matrix)
-
-        self.proj_matrix = proj_matrix
-        self.theta_ray = self.calc_theta_ray(img, box_2d, proj_matrix)
-        self.img = self.format_img(img, box_2d)
-        self.label = label
-        self.detection_class = detection_class
-
-    def calc_theta_ray(self, img, box_2d, proj_matrix):
-        width = img.shape[1]
-        fovx = 2 * np.arctan(width / (2 * proj_matrix[0][0]))
-        center = (box_2d[1][0] + box_2d[0][0]) / 2
-        dx = center - (width / 2)
-
-        mult = 1
-        if dx < 0:
-            mult = -1
-        dx = abs(dx)
-        angle = np.arctan( (2*dx*np.tan(fovx/2)) / width )
-        angle = angle * mult
-
-        return angle
-
-    def format_img(self, img, box_2d):        
-        xl, yl = box_2d[0]
-        xr, yr = box_2d[1]
-        batch = self.transform(img[yl:yr+1, xl:xr+1])
-        return batch
