@@ -1,8 +1,3 @@
-"""
-Images must be in ./Kitti/testing/image_2/ and camera matricies in ./Kitti/testing/calib/
-Uses YOLO to obtain 2D box, PyTorch to get 3D box, plots both
-"""
-
 ## INBUILT YOLO FUNCTIONS
 from yolov5.utils.general import non_max_suppression, scale_coords
 from yolov5.utils.torch_utils import select_device
@@ -33,61 +28,39 @@ cudnn.benchmark = True
 
 def main():
     yolo_model_path = 'yolov5/weights/yolov5s.pt'
+    model_path =  os.path.abspath(os.path.dirname(__file__)) + '/weights/epoch_10.pkl'
+    
+    img_path = os.path.abspath(os.path.dirname(__file__)) + "/Train_3D_Features/Kitti/2011_09_26/image_02/data/"
+    calib_file = os.path.abspath(os.path.dirname(__file__)) + "/Train_3D_Features/Kitti/2011_09_26/calib_cam_to_cam.txt"
+
+    # img_path = os.path.abspath(os.path.dirname(__file__)) + "/eval/image_2"
+    # calib_file = os.path.abspath(os.path.dirname(__file__)) + "Train_3D_Features/utils/calib_cam_to_cam.txt"
+
     device = select_device('')
 
     detector = torch.load(yolo_model_path, map_location=device)['model'].float()  
     detector.to(device).eval()
     names = detector.module.names if hasattr(detector, 'module') else detector.names        
+    
+    my_vgg = vgg.vgg19_bn(pretrained=True)
+    model = Model.Model(features=my_vgg.features, bins=2).to(device)
 
-    # load torch
-    weights_path = os.path.abspath(os.path.dirname(__file__)) + '/weights'
-    model_lst = [x for x in sorted(os.listdir(weights_path)) if x.endswith('.pkl')]
-    if len(model_lst) == 0:
-        print('No previous model found, please train first!')
-        exit()
+    if torch.cuda.is_available():
+        checkpoint = torch.load(model_path)
     else:
-        print('Using previous model %s'%model_lst[-1])
-        my_vgg = vgg.vgg19_bn(pretrained=True)
-        model = Model.Model(features=my_vgg.features, bins=2).to(device)
+        checkpoint = torch.load(model_path,map_location=torch.device('cpu'))
 
-        if torch.cuda.is_available():
-            checkpoint = torch.load(weights_path + '/%s' % model_lst[-1])
-        else:
-            checkpoint = torch.load(weights_path + '/%s' % model_lst[-1],map_location=torch.device('cpu'))
-
-        model.load_state_dict(checkpoint['model_state_dict'])
-        model.eval()
+    model.load_state_dict(checkpoint['model_state_dict'])
+    model.eval()
 
     averages = ClassAverages.ClassAverages()
-
-    # TODO: clean up how this is done. flag?
     angle_bins = generate_bins(2)
 
-    image_dir = "eval/image_2/"
-    cal_dir = "camera_cal/"
-
-    img_path = os.path.abspath(os.path.dirname(__file__)) + "/" + image_dir
-    # using P_rect from global calibration file
-    calib_file = os.path.abspath(os.path.dirname(__file__)) + "/Train_3D_Features/utils/calib_cam_to_cam.txt"
-
-    # using P from each frame
-    # calib_path = os.path.abspath(os.path.dirname(__file__)) + '/Kitti/testing/calib/'
-
-    try:
-        ids = [x.split('.')[0] for x in sorted(os.listdir(img_path))]
-    except:
-        print("\nError: no images in %s"%img_path)
-        exit()
-    print(ids)
-    for img_id in ids:
-
-        start_time = time.time()
-
+    image_list = [x.split('.')[0] for x in sorted(os.listdir(img_path))]
+    print("No of images:", len(image_list))
+    
+    for img_id in image_list:
         img_file = img_path + img_id + ".png"
-
-        # P for each frame
-        # calib_file = calib_path + id + ".txt"
-
         truth_img = cv2.imread(img_file)
         img = np.copy(truth_img)
         yolo_img = np.copy(truth_img)
@@ -107,7 +80,6 @@ def main():
         detections = non_max_suppression(alldetections, 0.5, 0.5, agnostic=True)[0]
         if detections is None:
             continue
-        
         detections[:, :4] = scale_coords(v5img.shape[2:], detections[:, :4], truth_img.shape).round()
         
         for detection in detections:
@@ -155,8 +127,12 @@ def main():
             plot_3d_box(img, proj_matrix, orient, dim, location) # 3d boxes
 
         numpy_vertical = np.concatenate((truth_img, img), axis=0)
+        new_height = int(1024 * 4/5)
+        new_width = int(1392 * 4/5)
+        # Resize the image
+        numpy_vertical = cv2.resize(numpy_vertical, (new_width, new_height))
         cv2.imshow('2D vs 3D detections', numpy_vertical)
-        cv2.waitKey(0)
+        cv2.waitKey(5)
        
 if __name__ == '__main__':
     main()
