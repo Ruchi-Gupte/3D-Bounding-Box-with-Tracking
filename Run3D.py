@@ -4,7 +4,6 @@ from yolov5.utils.torch_utils import select_device
 from yolov5.utils.datasets import letterbox
 import torch.backends.cudnn as cudnn
 
-from Train_3D_Features.utils.DetectObj import *
 from Train_3D_Features.utils.Math import *
 from Train_3D_Features.utils.Plotting import *
 from Train_3D_Features.utils import ClassAverages
@@ -20,18 +19,54 @@ import cv2
 import torch
 import torch.nn as nn
 from torchvision.models import vgg
+from torchvision import transforms
 
 
 url = os.path.dirname(__file__)
 sys.path.append(os.path.abspath(os.path.join(url, 'yolov5')))
 cudnn.benchmark = True
+transform = transforms.Compose([transforms.ToTensor(), transforms.Resize((224, 224)), transforms.Normalize((0.485, 0.456, 0.406),(0.229, 0.224, 0.225))])
 
+def generate_bins(bins):
+    angle_bins = np.zeros(bins)
+    interval = 2 * np.pi / bins
+    for i in range(1,bins):
+        angle_bins[i] = i * interval
+    angle_bins += interval / 2 # center of the bin
+
+    return angle_bins
+
+def plot_2d_box(img, box_2d, id):
+    # create a square from the corners
+    x1, y1 = box_2d[0]
+    x2,y2 = box_2d[1]
+   
+    # plot the 2d box
+    cv2.rectangle(img,(x1, y1),(x2,y2),(255,0,0),3)
+    cv2.rectangle(img,(x1, y1+15),(x1+25,y1), (255,0,0),-1)
+    cv2.putText(img,id,(x1,y1+15), cv2.FONT_HERSHEY_PLAIN, 1, [255,255,255], 2)
+
+def calc_theta_ray(img, box_2d, proj_matrix):
+    width = img.shape[1]
+    fovx = 2 * np.arctan(width / (2 * proj_matrix[0][0]))
+    center = (box_2d[1][0] + box_2d[0][0]) / 2
+    dx = center - (width / 2)
+
+    mult = 1
+    if dx < 0:
+        mult = -1
+    dx = abs(dx)
+    angle = np.arctan( (2*dx*np.tan(fovx/2)) / width )
+    angle = angle * mult
+
+    return angle
+    
 def main():
     yolo_model_path = 'yolov5/weights/yolov5s.pt'
-    model_path =  os.path.abspath(os.path.dirname(__file__)) + '/weights/epoch_10.pkl'
+    model_path =  url + '/weights/epoch_10.pkl'
     
-    img_path = os.path.abspath(os.path.dirname(__file__)) + "/Train_3D_Features/Kitti/2011_09_26/image_02/data/"
-    calib_file = os.path.abspath(os.path.dirname(__file__)) + "/Train_3D_Features/Kitti/2011_09_26/calib_cam_to_cam.txt"
+    img_path = url + "/Train_3D_Features/Kitti/2011_09_26/image_02/data/"
+    calib_file = url + "/Train_3D_Features/Kitti/2011_09_26/calib_cam_to_cam.txt"
 
     # img_path = os.path.abspath(os.path.dirname(__file__)) + "/eval/image_2"
     # calib_file = os.path.abspath(os.path.dirname(__file__)) + "Train_3D_Features/utils/calib_cam_to_cam.txt"
@@ -58,7 +93,9 @@ def main():
 
     image_list = [x.split('.')[0] for x in sorted(os.listdir(img_path))]
     print("No of images:", len(image_list))
-    
+    proj_matrix = get_P(calib_file)
+    # R0 = get_R0(calib_file)
+    # Tr = get_tr_to_velo(calib_file)
     for img_id in image_list:
         img_file = img_path + img_id + ".png"
         truth_img = cv2.imread(img_file)
@@ -91,19 +128,10 @@ def main():
             if not averages.recognized_class(detected_class):
                 continue
 
-            try:
-                detectedObject = DetectedObject(img, detected_class, box2d, calib_file)
-            except:
-                continue
-
-            theta_ray = detectedObject.theta_ray
-            input_img = detectedObject.img
-            proj_matrix = detectedObject.proj_matrix
-            box_2d = box2d
-            detected_class = detected_class
-
-            input_tensor = torch.zeros([1,3,224,224]).to(device)
-            input_tensor[0,:,:,:] = input_img
+            theta_ray = calc_theta_ray(img, box2d, proj_matrix)
+            xl, yl = box2d[0]
+            xr, yr = box2d[1]
+            input_tensor = transform(img[yl:yr+1, xl:xr+1]).reshape(1,3,224,224).to(device)
 
             [orient, conf, dim] = model(input_tensor)
             orient = orient.cpu().data.numpy()[0, :, :]
@@ -121,10 +149,11 @@ def main():
             alpha -= np.pi
 
             #Plot 2D and 3D box
-            location, X = calc_location(dim, proj_matrix, box_2d, alpha, theta_ray)
+            location, X = calc_location(dim, proj_matrix, box2d, alpha, theta_ray)
+
             orient = alpha + theta_ray
-            plot_2d_box(truth_img, box_2d)
-            plot_3d_box(img, proj_matrix, orient, dim, location) # 3d boxes
+            plot_2d_box(truth_img, box2d, '1')
+            img = plot_3d_box(img, proj_matrix, orient, dim, location, '1', box2d) # 3d boxes
 
         numpy_vertical = np.concatenate((truth_img, img), axis=0)
         new_height = int(1024 * 4/5)
