@@ -4,9 +4,9 @@ from yolov5.utils.torch_utils import select_device
 from yolov5.utils.datasets import letterbox
 import torch.backends.cudnn as cudnn
 
-from Train_3D_Features.utils.Math import *
-from Train_3D_Features.utils.Plotting import *
-from Train_3D_Features.utils import ClassAverages
+from Utils.Math import *
+from Utils.helper import *
+from Utils import ClassAverages
 from Train_3D_Features import Model
 import sys
 
@@ -26,50 +26,13 @@ url = os.path.dirname(__file__)
 sys.path.append(os.path.abspath(os.path.join(url, 'yolov5')))
 cudnn.benchmark = True
 transform = transforms.Compose([transforms.ToTensor(), transforms.Resize((224, 224)), transforms.Normalize((0.485, 0.456, 0.406),(0.229, 0.224, 0.225))])
-
-def generate_bins(bins):
-    angle_bins = np.zeros(bins)
-    interval = 2 * np.pi / bins
-    for i in range(1,bins):
-        angle_bins[i] = i * interval
-    angle_bins += interval / 2 # center of the bin
-
-    return angle_bins
-
-def plot_2d_box(img, box_2d, id):
-    # create a square from the corners
-    x1, y1 = box_2d[0]
-    x2,y2 = box_2d[1]
-   
-    # plot the 2d box
-    cv2.rectangle(img,(x1, y1),(x2,y2),(255,0,0),3)
-    cv2.rectangle(img,(x1, y1+15),(x1+25,y1), (255,0,0),-1)
-    cv2.putText(img,id,(x1,y1+15), cv2.FONT_HERSHEY_PLAIN, 1, [255,255,255], 2)
-
-def calc_theta_ray(img, box_2d, proj_matrix):
-    width = img.shape[1]
-    fovx = 2 * np.arctan(width / (2 * proj_matrix[0][0]))
-    center = (box_2d[1][0] + box_2d[0][0]) / 2
-    dx = center - (width / 2)
-
-    mult = 1
-    if dx < 0:
-        mult = -1
-    dx = abs(dx)
-    angle = np.arctan( (2*dx*np.tan(fovx/2)) / width )
-    angle = angle * mult
-
-    return angle
     
 def main():
     yolo_model_path = 'yolov5/weights/yolov5s.pt'
-    model_path =  url + '/weights/epoch_10.pkl'
+    model_path =  url + '/Train_3D_Features/trained_models/epoch_10.pkl'
     
-    img_path = url + "/Train_3D_Features/Kitti/2011_09_26/image_02/data/"
-    calib_file = url + "/Train_3D_Features/Kitti/2011_09_26/calib_cam_to_cam.txt"
-
-    # img_path = os.path.abspath(os.path.dirname(__file__)) + "/eval/image_2"
-    # calib_file = os.path.abspath(os.path.dirname(__file__)) + "Train_3D_Features/utils/calib_cam_to_cam.txt"
+    img_path = url + "/eval/2011_09_26/image_02/data/"
+    calib_file = url + "/eval/2011_09_26/calib_cam_to_cam.txt"
 
     device = select_device('')
 
@@ -149,7 +112,7 @@ def main():
             alpha -= np.pi
 
             #Plot 2D and 3D box
-            location, X = calc_location(dim, proj_matrix, box2d, alpha, theta_ray)
+            location, _ = calc_location(dim, proj_matrix, box2d, alpha, theta_ray)
 
             orient = alpha + theta_ray
             plot_2d_box(truth_img, box2d, '1')
