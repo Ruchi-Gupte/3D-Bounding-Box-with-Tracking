@@ -1,5 +1,5 @@
 ## INBUILT YOLO FUNCTIONS
-from yolov5.utils.general import non_max_suppression, scale_coords
+from yolov5.utils.general import non_max_suppression, scale_coords, xyxy2xywh, xywh2xyxy
 from yolov5.utils.torch_utils import select_device
 from yolov5.utils.datasets import letterbox
 import torch.backends.cudnn as cudnn
@@ -9,18 +9,16 @@ from Utils.helper import *
 from Utils import ClassAverages
 from Train_3D_Features import Model
 import sys
-
 import os
-import time
-
 import numpy as np
 import cv2
 
 import torch
-import torch.nn as nn
 from torchvision.models import vgg
 from torchvision import transforms
 
+from deep_sort.deep_sort import DeepSort
+__all__ = ['DeepSort']
 
 url = os.path.dirname(__file__)
 sys.path.append(os.path.abspath(os.path.join(url, 'yolov5')))
@@ -30,11 +28,15 @@ transform = transforms.Compose([transforms.ToTensor(), transforms.Resize((224, 2
 def main():
     yolo_model_path = 'yolov5/weights/yolov5s.pt'
     model_path =  url + '/Train_3D_Features/trained_models/epoch_10.pkl'
+    deepsort_model_path = "deep_sort/deep/checkpoint/model_orginal_lr2030.pth"
     
     img_path = url + "/eval/2011_09_26/image_02/data/"
     calib_file = url + "/eval/2011_09_26/calib_cam_to_cam.txt"
 
+
     device = select_device('')
+    use_cuda = device.type != 'cpu' and torch.cuda.is_available()
+    deepsort = DeepSort(deepsort_model_path, use_cuda=use_cuda)
 
     detector = torch.load(yolo_model_path, map_location=device)['model'].float()  
     detector.to(device).eval()
@@ -81,12 +83,18 @@ def main():
         if detections is None:
             continue
         detections[:, :4] = scale_coords(v5img.shape[2:], detections[:, :4], truth_img.shape).round()
+        bbox_xywh = xyxy2xywh(detections[:, :4]).cpu()
+        confs = detections[:, 4:5].cpu()
+        classes = detections[:, -1].cpu().numpy()
+        deep_ids = deepsort.update(bbox_xywh, confs, classes, yolo_img)
+        if len(deep_ids)==0:
+            continue        
         
-        for detection in detections:
-            detection = detection.cpu().numpy()
+        for detection in deep_ids:
             matrix = detection[:4].astype(int).reshape(-1, 2).T
             box2d = [tuple(row) for row in matrix.T]
-            detected_class = names[int(detection[-1])]
+            detected_class = names[int(detection[-2])]
+            id = str(detection[-1])
 
             if not averages.recognized_class(detected_class):
                 continue
@@ -115,8 +123,8 @@ def main():
             location, _ = calc_location(dim, proj_matrix, box2d, alpha, theta_ray)
 
             orient = alpha + theta_ray
-            plot_2d_box(truth_img, box2d, '1')
-            img = plot_3d_box(img, proj_matrix, orient, dim, location, '1', box2d) # 3d boxes
+            plot_2d_box(truth_img, box2d, id)
+            img = plot_3d_box(img, proj_matrix, orient, dim, location, id, box2d) # 3d boxes
 
         numpy_vertical = np.concatenate((truth_img, img), axis=0)
         new_height = int(1024 * 4/5)
@@ -124,7 +132,7 @@ def main():
         # Resize the image
         numpy_vertical = cv2.resize(numpy_vertical, (new_width, new_height))
         cv2.imshow('2D vs 3D detections', numpy_vertical)
-        cv2.waitKey(5)
+        cv2.waitKey(1)
        
 if __name__ == '__main__':
     main()
