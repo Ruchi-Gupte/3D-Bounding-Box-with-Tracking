@@ -29,10 +29,13 @@ def main():
     yolo_model_path = 'yolov5/weights/yolov5s.pt'
     model_path =  url + '/Train_3D_Features/trained_models/epoch_10.pkl'
     deepsort_model_path = "deep_sort/deep/checkpoint/model_orginal_lr2030.pth"
+    save_video_path = 'output2.mp4v'
     
     img_path = url + "/eval/2011_09_26/image_02/data/"
     calib_file = url + "/eval/2011_09_26/calib_cam_to_cam.txt"
 
+    writer = cv2.VideoWriter(save_video_path, cv2.VideoWriter_fourcc(*'mp4v'), 10, (1113, 819))
+    print('Saving output to ', save_video_path)
 
     device = select_device('')
     use_cuda = device.type != 'cpu' and torch.cuda.is_available()
@@ -131,8 +134,11 @@ def main():
         new_width = int(1392 * 4/5)
         # Resize the image
         numpy_vertical = cv2.resize(numpy_vertical, (new_width, new_height))
+        writer.write(numpy_vertical)
         cv2.imshow('2D vs 3D detections', numpy_vertical)
         cv2.waitKey(1)
-       
+    writer.release()
+    
 if __name__ == '__main__':
     main()
+
