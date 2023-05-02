@@ -52,6 +52,21 @@ def project_3d_pt(pt, proj_P):
     point = point.astype(np.int16)
     return point
 
+def generate3DBoxSamples(location):
+    count = 500 #number of samples wanted
+    location_samples=[]
+    x = location[2]
+    y = location[0]
+    z = location[1]
+    for i in range(count):
+        rx = np.random.normal(x) #random.normal(loc=0.0, scale=1.0, size=None)
+        ry = np.random.normal(y)
+        rz = np.random.normal(z)
+        location = [ry, rz, rz]
+        location_samples.append(location)
+    return location_samples
+
+
 def plot_3d_box(img, proj_P, ry, dimension, center, id, box2d=None, thresh=0):
 
     R = rotation_matrix(ry)
