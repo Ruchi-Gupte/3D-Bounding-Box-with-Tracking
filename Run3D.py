@@ -6,11 +6,6 @@ import torch.backends.cudnn as cudnn
 
 from Utils.Math import *
 from Utils.helper import *
-<<<<<<< HEAD
-=======
-from Utils import ClassAverages
-from Utils import kitti_labels
->>>>>>> aca35a291f00c47615817d66989895144c3c8611
 from Train_3D_Features import Model
 import sys
 import os
@@ -25,9 +20,7 @@ from torchvision import transforms
 from deep_sort.deep_sort import DeepSort
 __all__ = ['DeepSort']
 
-url = os.path.dirname(os.path.abspath(__file__))
-
-print("URL: ",url)
+url = os.path.dirname(__file__)
 sys.path.append(os.path.abspath(os.path.join(url, 'yolov5')))
 cudnn.benchmark = True
 transform = transforms.Compose([transforms.ToTensor(), transforms.Resize((224, 224)), transforms.Normalize((0.485, 0.456, 0.406),(0.229, 0.224, 0.225))])
@@ -39,9 +32,7 @@ def main():
     save_video_path = 'output2.mp4v'
     class_avg_path = url+'/Utils/class_averages.json'
     
-    img_path = url + "/eval/image_2/"
-    label_path = url + "/eval/label_2/"
-    calib_path = url + "/eval/calib/"
+    img_path = url + "/eval/2011_09_26/image_02/data/"
     calib_file = url + "/eval/2011_09_26/calib_cam_to_cam.txt"
 
     writer = cv2.VideoWriter(save_video_path, cv2.VideoWriter_fourcc(*'mp4v'), 5, (1113, 819))
@@ -78,9 +69,6 @@ def main():
     # Tr = get_tr_to_velo(calib_file)
     for img_id in image_list:
         img_file = img_path + img_id + ".png"
-        label = kitti_labels.LabelFile(label_path + img_id + ".txt")
-        #calib = kitti_labels.CalibFile(calib_path + img_id + ".txt")
-        calib = get_P(calib_path + img_id + ".txt")
         truth_img = cv2.imread(img_file)
         img = np.copy(truth_img)
         yolo_img = np.copy(truth_img)
@@ -141,17 +129,8 @@ def main():
             location, _ = calc_location(dim, proj_matrix, box2d, alpha, theta_ray)
 
             orient = alpha + theta_ray
-
-            #given location, dim, and orient - densely sample proposals
-            #Trained NN to find proposal with best 3D IoU. Train with ground truth vs proposals
             plot_2d_box(truth_img, box2d, id)
             img = plot_3d_box(img, proj_matrix, orient, dim, location, id, box2d) # 3d boxes
-
-
-        #projecting ground truth 3d boxes - debug
-        # for l in label.labels:
-        #     dims = np.array([l['l'],l['h'],l['w']])
-        #     truth_img = plot_3d_box(truth_img, calib, orient, dims, list(l['t']),'1')  # 3d boxes
 
         numpy_vertical = np.concatenate((truth_img, img), axis=0)
         new_height = int(1024 * 4/5)
@@ -162,7 +141,6 @@ def main():
         cv2.imshow('2D vs 3D detections', numpy_vertical)
         cv2.waitKey(1)
     writer.release()
-
+    
 if __name__ == '__main__':
     main()
-
