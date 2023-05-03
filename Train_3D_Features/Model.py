@@ -24,8 +24,6 @@ class Model(nn.Module):
                     nn.ReLU(True),
                     nn.Dropout(),
                     nn.Linear(256, bins),
-                    # nn.Softmax()
-                    #nn.Sigmoid()
                 )
         self.dimension = nn.Sequential(
                     nn.Linear(512 * 7 * 7, 512),

@@ -6,12 +6,12 @@ import torch.backends.cudnn as cudnn
 
 from Utils.Math import *
 from Utils.helper import *
-from Utils import ClassAverages
 from Train_3D_Features import Model
 import sys
 import os
 import numpy as np
 import cv2
+import json
 
 import torch
 from torchvision.models import vgg
@@ -27,14 +27,15 @@ transform = transforms.Compose([transforms.ToTensor(), transforms.Resize((224, 2
     
 def main():
     yolo_model_path = 'yolov5/weights/yolov5s.pt'
-    model_path =  url + '/Train_3D_Features/trained_models/epoch_10.pkl'
+    model_path =  url + '/Train_3D_Features/trained_models/model_epoch_last.pth'
     deepsort_model_path = "deep_sort/deep/checkpoint/model_orginal_lr2030.pth"
     save_video_path = 'output2.mp4v'
+    class_avg_path = url+'/Utils/class_averages.json'
     
     img_path = url + "/eval/2011_09_26/image_02/data/"
     calib_file = url + "/eval/2011_09_26/calib_cam_to_cam.txt"
 
-    writer = cv2.VideoWriter(save_video_path, cv2.VideoWriter_fourcc(*'mp4v'), 10, (1113, 819))
+    writer = cv2.VideoWriter(save_video_path, cv2.VideoWriter_fourcc(*'mp4v'), 5, (1113, 819))
     print('Saving output to ', save_video_path)
 
     device = select_device('')
@@ -56,7 +57,9 @@ def main():
     model.load_state_dict(checkpoint['model_state_dict'])
     model.eval()
 
-    averages = ClassAverages.ClassAverages()
+    with open(class_avg_path, 'r') as f:
+            json_str = f.read()      
+    averages = json.loads(json_str)
     angle_bins = generate_bins(2)
 
     image_list = [x.split('.')[0] for x in sorted(os.listdir(img_path))]
@@ -96,10 +99,10 @@ def main():
         for detection in deep_ids:
             matrix = detection[:4].astype(int).reshape(-1, 2).T
             box2d = [tuple(row) for row in matrix.T]
-            detected_class = names[int(detection[-2])]
+            detected_class = names[int(detection[-2])].title()
             id = str(detection[-1])
 
-            if not averages.recognized_class(detected_class):
+            if detected_class not in averages:
                 continue
 
             theta_ray = calc_theta_ray(img, box2d, proj_matrix)
@@ -112,7 +115,7 @@ def main():
             conf = conf.cpu().data.numpy()[0, :]
             dim = dim.cpu().data.numpy()[0, :]
 
-            dim += averages.get_item(detected_class)
+            dim += np.array(averages[detected_class])
 
             argmax = np.argmax(conf)
             orient = orient[argmax, :]

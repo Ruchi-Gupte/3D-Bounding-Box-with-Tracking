@@ -1,4 +1,4 @@
-from utils.Dataset import Dataset
+from Dataset import *
 from tqdm import tqdm
 import os
 import torch
@@ -10,6 +10,7 @@ from Model import Model
 
 def plot_graph(train_loss_curve):
     # Training Loss vs Epochs
+    # plt.plot(range(10), [0.30456, 0.056742, -0.10345, -0.2049603, -0.255351, -0.283185, -0.3005435, -0.315708, -0.324204, -0.3288738], label="Train Loss")
     plt.plot(range(len(train_loss_curve)), train_loss_curve, label="Train Loss")
     plt.title("Epoch Vs Loss")
     plt.legend()
@@ -53,7 +54,7 @@ def train_test_model(epochs, device, use_saved=False):
     root = os.path.abspath(os.path.dirname(__file__))
     train_path = root + '/Kitti/training'
     save_dir = root + '/trained_models/'
-    model_path = root + '/trained_models/model_epoch_0.pth'
+    model_path = root + '/trained_models/model_epoch_last.pth'
     dataset = Dataset(train_path)
     print("Obtained Training Data")
 
@@ -89,13 +90,13 @@ def train_test_model(epochs, device, use_saved=False):
         print("Epoch: ",epoch+1," Training Loss:", training_loss/len(trainloader))
 
         # Save Model after each epoch
-        name = save_dir + 'model_epoch_%s.pth' % epoch
+        name = save_dir + 'model_epoch_last.pth'
         torch.save({'epoch': epoch+1, 'model_state_dict': model.state_dict()}, name)
     return train_loss_curve
 
 if __name__=='__main__':
-    epochs =2
-    use_saved = True
+    epochs =10
+    use_saved = False
     device = "cuda:0" if torch.cuda.is_available() else "cpu"
     if torch.cuda.is_available():
         cudnn.benchmark = True

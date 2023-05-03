@@ -1,18 +1,14 @@
 import numpy as np
 
-# using this math: https://en.wikipedia.org/wiki/Rotation_matrix
+# https://en.wikipedia.org/wiki/Rotation_matrix
 def rotation_matrix(yaw, pitch=0, roll=0):
     tx = roll
     ty = yaw
     tz = pitch
-
     Rx = np.array([[1,0,0], [0, np.cos(tx), -np.sin(tx)], [0, np.sin(tx), np.cos(tx)]])
     Ry = np.array([[np.cos(ty), 0, np.sin(ty)], [0, 1, 0], [-np.sin(ty), 0, np.cos(ty)]])
     Rz = np.array([[np.cos(tz), -np.sin(tz), 0], [np.sin(tz), np.cos(tz), 0], [0,0,1]])
-
-
     return Ry.reshape([3,3])
-    # return np.dot(np.dot(Rz,Ry), Rx)
 
 # option to rotate and shift (for label info)
 def create_corners(dimension, location=None, R=None):
@@ -45,13 +41,8 @@ def create_corners(dimension, location=None, R=None):
     final_corners = []
     for i in range(8):
         final_corners.append([corners[0][i], corners[1][i], corners[2][i]])
-
-
     return final_corners
 
-# this is based on the paper. Math!
-# calib is a 3x4 matrix, box_2d is [(xmin, ymin), (xmax, ymax)]
-# Math help: http://ywpkwon.github.io/pdf/bbox3d-study.pdf
 def calc_location(dimension, proj_matrix, box_2d, alpha, theta_ray):
     #global orientation
     orient = alpha + theta_ray
@@ -79,10 +70,6 @@ def calc_location(dimension, proj_matrix, box_2d, alpha, theta_ray):
     dy = dimension[0] / 2
     dz = dimension[1] / 2
 
-    # below is very much based on trial and error
-
-    # based on the relative angle, a different configuration occurs
-    # negative is back of car, positive is front
     left_mult = 1
     right_mult = -1
 
