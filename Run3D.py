@@ -1,5 +1,5 @@
 ## INBUILT YOLO FUNCTIONS
-from yolov5.utils.general import non_max_suppression, scale_coords, xyxy2xywh, xywh2xyxy
+from yolov5.utils.general import non_max_suppression, scale_coords, xyxy2xywh
 from yolov5.utils.torch_utils import select_device
 from yolov5.utils.datasets import letterbox
 import torch.backends.cudnn as cudnn
@@ -143,7 +143,7 @@ def main():
         birdview = plot_Birds_Eye(birdimage)
         cv2.imshow('2D vs 3D detections', numpy_vertical)
         cv2.imshow('Birds Eye View', birdview)
-        cv2.waitKey(1)
+        cv2.waitKey(0)
     writer.release()
     
 if __name__ == '__main__':
