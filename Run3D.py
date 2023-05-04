@@ -21,14 +21,16 @@ from torchvision import transforms
 from deep_sort.deep_sort import DeepSort
 __all__ = ['DeepSort']
 
-url = os.path.dirname(__file__)
+url = os.path.dirname(os.path.abspath(__file__))
+
 sys.path.append(os.path.abspath(os.path.join(url, 'yolov5')))
 cudnn.benchmark = True
 transform = transforms.Compose([transforms.ToTensor(), transforms.Resize((224, 224)), transforms.Normalize((0.485, 0.456, 0.406),(0.229, 0.224, 0.225))])
     
 def main():
+    print("URL: ",url)
     yolo_model_path = 'yolov5/weights/yolov5s.pt'
-    model_path =  url + '/Train_3D_Features/trained_models/model_epoch_last.pth'
+    model_path =  url + '/Train_3D_Features/trained_models/epoch_10.pkl'
     deepsort_model_path = "deep_sort/deep/checkpoint/model_orginal_lr2030.pth"
     save_video_path = 'output2.mp4v'
     class_avg_path = url+'/Utils/class_averages.json'
