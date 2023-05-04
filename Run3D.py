@@ -6,6 +6,7 @@ import torch.backends.cudnn as cudnn
 
 from Utils.Math import *
 from Utils.helper import *
+from Utils.Visualization_3D import *
 from Train_3D_Features import Model
 import sys
 import os
@@ -95,7 +96,7 @@ def main():
         deep_ids = deepsort.update(bbox_xywh, confs, classes, yolo_img)
         if len(deep_ids)==0:
             continue        
-        
+        birdimage = []
         for detection in deep_ids:
             matrix = detection[:4].astype(int).reshape(-1, 2).T
             box2d = [tuple(row) for row in matrix.T]
@@ -129,6 +130,7 @@ def main():
             location, _ = calc_location(dim, proj_matrix, box2d, alpha, theta_ray)
 
             orient = alpha + theta_ray
+            birdimage.append(Compute_Birds_eye_view(dim, location, theta_ray, alpha, proj_matrix, id))
             plot_2d_box(truth_img, box2d, id)
             img = plot_3d_box(img, proj_matrix, orient, dim, location, id, box2d) # 3d boxes
 
@@ -138,7 +140,9 @@ def main():
         # Resize the image
         numpy_vertical = cv2.resize(numpy_vertical, (new_width, new_height))
         writer.write(numpy_vertical)
+        birdview = plot_Birds_Eye(birdimage)
         cv2.imshow('2D vs 3D detections', numpy_vertical)
+        cv2.imshow('Birds Eye View', birdview)
         cv2.waitKey(1)
     writer.release()
     
