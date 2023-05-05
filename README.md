@@ -2,6 +2,8 @@
 ```
 python Run3D.py
 ```
+Place trained model in Train_3D_Features/trained_models/
+Model: https://drive.google.com/file/d/1ZH_5GlL8tfSJCdL6JVyCmx3bhWkZWab3/view?usp=sharing
 
 ## Change all Paths to required directories
 
